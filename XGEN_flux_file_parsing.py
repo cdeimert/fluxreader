@@ -2,15 +2,16 @@ import re
 import os
 import datetime as dtm
 from typing import List, Dict, Tuple
-from copy import copy, deepcopy
+from copy import copy
+from dateutil import parser as dtparser
 
 import numpy as np
 
 from cells import Cell, cells
 from input_dialogs import get_cell_pars_from_user, ask_yes_no, show_error_and_exit
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-default_save_folder = os.path.join(this_dir, 'FluxDataPy')
+default_save_folder_base = r"V:\Growths\Fluxes and growth rates"
+default_save_folder = os.path.join(default_save_folder_base, 'Flux data')
 
 class MIGReading():
     def __init__(
@@ -27,7 +28,7 @@ class MIGReading():
 
 class BkgrndMIGReading(MIGReading):
     def __init__(
-        self, 
+        self,
         timestamp: dtm.datetime,
         MIG_current: float,
         signal_to_noise: float=None,
@@ -111,17 +112,20 @@ class CorrMIGReading(MIGReading):
         self.num_meas_between = num_meas_between
 
     def print_to_str(self):
-        out_str = f"{self.timestamp}, "
-        out_str += f"Cell={self.cell.name}, "
+        out_str = f"{self.timestamp},"
+        out_str += f"Cell={self.cell.name},"
         for par, val in self.cell_par_vals.items():
             if val:
-                out_str += f'{par}={val:g}, '
+                out_str += f'{par}={val:g},'
             else:
-                out_str += f'{par}=?, '
-        out_str += f"MIG (nA)={self.MIG_current:.4f}, "
-        out_str += f"Sig-to-noise={self.signal_to_noise:.2f}, "
-        out_str += f"Sig-to-bg={self.signal_to_background:.2f}, "
-        out_str += f"# meas between sig and bg={self.num_meas_between}"
+                out_str += f'{par}=?,'
+        out_str += f"MIG (nA)={self.MIG_current:.4f},"
+        if self.signal_to_noise is not None:
+            out_str += f"Sig-to-noise={self.signal_to_noise:.2f},"
+        if self.signal_to_background is not None:
+            out_str += f"Sig-to-bg={self.signal_to_background:.2f},"
+        if self.num_meas_between is not None:
+            out_str += f"# meas between sig and bg={self.num_meas_between:d}"
 
         return out_str
 
@@ -297,6 +301,7 @@ def prompt_for_missing_par_vals(
     '''Assumes all readings correspond to the same timestamp and cell.'''
 
     missing_pars = []
+
     for rd in readings:
         for par, val in rd.cell_par_vals.items():
             if (par not in missing_pars) and (val is None):
@@ -322,10 +327,10 @@ def generate_header(cellname: str) -> str:
 
     header = "Timestamp"
     for par in cell.pars:
-        header += f", {par}"
+        header += f",{par}"
 
-    header += ", MIG (nA), Signal-to-noise, Signal-to-background"
-    header += ", Num meas between sig and BG"
+    header += ",MIG (nA),Signal-to-noise,Signal-to-background"
+    header += ",Num meas between sig and BG"
 
     return header
 
@@ -335,13 +340,13 @@ def print_line(reading: CorrMIGReading) -> str:
     out_str = f"\n"
     out_str += dtm.datetime.strftime(reading.timestamp, '%Y-%m-%d %H:%M:%S')
     for _, val in reading.cell_par_vals.items():
-        out_str += ", "
+        out_str += ","
         if val:
             out_str += f"{val:g}"
 
-    out_str += f", {reading.MIG_current:g}, {reading.signal_to_noise}"
-    out_str += f", {reading.signal_to_background:g}"
-    out_str += f", {reading.num_meas_between}"
+    out_str += f",{reading.MIG_current:.4f},{reading.signal_to_noise:.2f}"
+    out_str += f",{reading.signal_to_background:.2f}"
+    out_str += f",{reading.num_meas_between:d}"
 
     return out_str
 
@@ -360,7 +365,7 @@ def load_readings(
 
     for cellname in cellnames:
 
-        filepath = os.path.join(folder, f"{cellname}.txt")
+        filepath = os.path.join(folder, f"{cellname}.csv")
 
         cell = cells.find_by_name(cellname)
 
@@ -373,24 +378,22 @@ def load_readings(
             if header != generate_header(cellname):
                 raise ValueError("Unexpected file header.")
 
-            valnames = header.split(', ')
-
+            valnames = header.split(',')
 
             for line in fl:
-                vals = line.strip().split(', ')
+                vals = line.strip().split(',')
 
                 valdict = {name: val for name, val in zip(valnames, vals)}
 
-                timestamp = dtm.datetime.strptime(
-                    valdict['Timestamp'], '%Y-%m-%d %H:%M:%S'
-                )
+                timestamp = dtparser.parse(valdict['Timestamp'])
+
                 MIG_current = read_float(valdict['MIG (nA)'])
                 signal_to_noise = read_float(valdict['Signal-to-noise'])
                 signal_to_background = read_float(
                     valdict['Signal-to-background']
                 )
-                num_meas_between = read_float(
-                    valdict['Num meas between sig and BG']
+                num_meas_between = int(
+                    read_float(valdict['Num meas between sig and BG'])
                 )
 
                 cell_par_vals = {
@@ -529,7 +532,7 @@ def write_readings(
     readings_split = split_readings(readings)
 
     filepaths = {
-        cellname: os.path.join(folder, f"{cellname}.txt")
+        cellname: os.path.join(folder, f"{cellname}.csv")
         for cellname in readings_split
     }
 

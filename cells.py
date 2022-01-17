@@ -47,8 +47,10 @@ class AsCell(Cell):
         self, name: str, port: int, cracker_temp_default: float=None
     ) -> None:
 
-        extra_pars = ['Valve (%)', 'Crack Temp (°C)']
-        defaults = {'Crack Temp (°C)': cracker_temp_default}
+        extra_pars = ['Valve (%)', 'Crack Temp (°C)', 'Time after opening (min)']
+        defaults = {
+            'Crack Temp (°C)': cracker_temp_default
+        }
 
         super().__init__(name, port, extra_pars, defaults)
 
@@ -117,7 +119,7 @@ cells = CellList([
         tip_ratio_default=200
     ),
     SingleFilCell(
-        name='Al2',
+        name='Al1',
         port=10
     ),
     SbCell(

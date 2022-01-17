@@ -194,7 +194,7 @@ class FluxMeasurementDialog(MultiFieldDialog):
         field_names = ['Growth number']
         field_names += [f'{name} target MIG (nA)' for name in cell_names]
 
-        message = "Performing flux calibration for cell(s) "
+        message = "Calculating flux calibration for group III cell(s) "
         message += ', '.join(cell_names)
         message += f'.\nTimestamp for flux measurements: {timestamp}\n\n'
         message += "Please enter growth number and target MIG readings.\n"

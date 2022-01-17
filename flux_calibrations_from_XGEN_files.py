@@ -1,3 +1,4 @@
+import atexit
 from typing import List
 import os
 import datetime as dtm
@@ -6,17 +7,16 @@ import numpy as np
 from cells import Cell
 from XGEN_flux_file_parsing import (
     CorrMIGReading, parse_flux_filename, get_corrected_readings_from_XGEN_file,
-    save_readings
+    save_readings, default_save_folder_base
 )
 from input_dialogs import get_files_from_user, prompt_flux_measurement, show_error_and_exit
+
+atexit.register(lambda: input("\nFinished. Press any key to exit..."))
 
 print("Collecting flux data and running group III calibrations...\n")
 print("Please select the XGEN FluxData files that you want to use.\n")
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-
-outdir_calib = os.path.join(this_dir, 'FluxCalibPy')
-outdir_flux = os.path.join(this_dir, 'FluxDataPy')
+outdir_calib = os.path.join(default_save_folder_base, 'Flux calibs')
 
 def uniquify(path):
     filename, extension = os.path.splitext(path)
@@ -167,20 +167,20 @@ for filename in filenames:
     all_readings += readings
 
 print("\nSaving collected data...")
-save_readings(all_readings, outdir_flux)
+save_readings(all_readings)
 
-outfolder = os.path.join(outdir_calib, "Summaries")
-os.makedirs(outfolder, exist_ok=True)
 
-outfilepath = os.path.join(outfolder, f"{growth_num}.txt")
-outfilepath = uniquify(outfilepath)
+if grpIII_cellnames:
+    outfolder = os.path.join(outdir_calib, "Summaries")
+    os.makedirs(outfolder, exist_ok=True)
 
-with open(outfilepath, 'w', encoding='utf8') as outfile:
-    outfile.write(summary_message)
+    outfilepath = os.path.join(outfolder, f"{growth_num}.txt")
+    outfilepath = uniquify(outfilepath)
 
-print("\n---- Summary ----")
-print(summary_message)
+    with open(outfilepath, 'w', encoding='utf8') as outfile:
+        outfile.write(summary_message)
 
-print(f"\n(Summary saved to '{outfilepath}')\n")
+    print("\n---- Summary ----")
+    print(summary_message)
 
-input("\nFinished. Press any key to exit...")
+    print(f"\n(Summary saved to '{outfilepath}')\n")
